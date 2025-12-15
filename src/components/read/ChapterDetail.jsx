@@ -40,7 +40,6 @@ import {
 /* =========================
    유틸
 ========================= */
-
 const isHan = (ch) => /\p{Script=Han}/u.test(ch);
 
 function uniqueJoin(arr, sep = "/") {
@@ -114,7 +113,6 @@ function renderHanjaWithHint(text) {
 /* =========================
    스타일
 ========================= */
-
 const cardSx = {
   borderRadius: 3,
   border: "1px solid",
@@ -133,6 +131,13 @@ const sectionTitleSx = {
   letterSpacing: -0.2,
 };
 
+const iconBtnSx = {
+  border: "1px solid rgba(0,0,0,0.10)",
+  bgcolor: "rgba(255,255,255,0.72)",
+  "&:hover": { bgcolor: "rgba(255,255,255,0.95)" },
+};
+
+// 셀(원문/번역/해설라인) 우상단 버튼 위치
 const cellBtnSx = {
   position: "absolute",
   top: 6,
@@ -140,26 +145,22 @@ const cellBtnSx = {
   zIndex: 2,
 };
 
-const iconBtnSx = {
-  border: "1px solid rgba(0,0,0,0.10)",
-  bgcolor: "rgba(255,255,255,0.72)",
-  "&:hover": { bgcolor: "rgba(255,255,255,0.95)" },
-};
+// 버튼 공간 확보용 padding-right (아이콘 한 개 기준)
+const BTN_SPACE_PR = 5;
 
 /* =========================
    메인
 ========================= */
-
 /**
  * props:
  * - chapter
  * - onTagClick?
- * - uid?  (선택)  // ✅ 안 줘도 자동으로 auth에서 읽음
+ * - uid? (선택) // 안 줘도 auth에서 자동 구독
  */
 export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
   const [view, setView] = useState("both"); // both | han | ko
 
-  // ✅ auth에서 uid 자동 구독
+  // ✅ auth에서 uid 자동 구독 (prop 우선)
   const [uid, setUid] = useState(uidProp || "");
 
   useEffect(() => {
@@ -167,7 +168,6 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
       setUid(uidProp);
       return;
     }
-
     const auth = getAuth();
     if (auth.currentUser?.uid) setUid(auth.currentUser.uid);
 
@@ -214,7 +214,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
       : [];
   }, [chapter]);
 
-  // ✅ uid + chapter 준비되면 북마크 조회
+  // ✅ 북마크 조회
   useEffect(() => {
     if (!uid || !chapter?.chapter) return;
 
@@ -225,7 +225,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         if (!mounted) return;
         setIsBookmarked(Boolean(data?.isSaved));
       } catch {
-        // 조용히
+        // ignore
       }
     })();
 
@@ -312,7 +312,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                 borderRadius: 2,
               }}
             />
-            <Typography variant="h5" sx={{ ...sectionTitleSx }}>
+            <Typography variant="h5" sx={sectionTitleSx}>
               {chapter.title}
             </Typography>
 
@@ -425,12 +425,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                       text: chapter.analysis.keySentence,
                     })
                   }
-                  sx={{
-                    position: "absolute",
-                    top: 10,
-                    right: 10,
-                    ...iconBtnSx,
-                  }}
+                  sx={{ position: "absolute", top: 10, right: 10, ...iconBtnSx }}
                 >
                   <NotesRoundedIcon fontSize="small" />
                 </IconButton>
@@ -438,7 +433,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
             </Tooltip>
           )}
 
-          <Typography sx={{ fontWeight: 900, lineHeight: 1.6 }}>
+          <Typography sx={{ fontWeight: 900, lineHeight: 1.6, pr: saveMode ? BTN_SPACE_PR : 0 }}>
             {chapter.analysis.keySentence}
           </Typography>
           <Typography variant="caption" sx={{ opacity: 0.75 }}>
@@ -456,7 +451,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         alignItems="center"
         sx={{ mb: 1.25 }}
       >
-        <Typography variant="h6" sx={{ ...sectionTitleSx }}>
+        <Typography variant="h6" sx={sectionTitleSx}>
           원문 · 번역
         </Typography>
 
@@ -534,7 +529,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                     letterSpacing: 0.2,
                     lineHeight: 2.05,
                     fontSize: 16,
-                    pr: saveMode ? 5 : 0,
+                    pr: saveMode ? BTN_SPACE_PR : 0,
                   }}
                 >
                   {renderHanjaWithHint(line.han)}
@@ -576,7 +571,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                     opacity: 0.92,
                     lineHeight: 1.8,
                     fontSize: 14.5,
-                    pr: saveMode ? 5 : 0,
+                    pr: saveMode ? BTN_SPACE_PR : 0,
                   }}
                 >
                   {line.ko}
@@ -597,11 +592,19 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
       {sections.length > 0 ? (
         <Stack spacing={1.25}>
           {sections.map((sec, idx) => (
-            <Box key={idx} sx={{ ...softBoxSx, p: 1.6, position: "relative" }}>
+            <Box
+              key={idx}
+              sx={{
+                ...softBoxSx,
+                p: 1.6,
+                position: "relative",
+              }}
+            >
+              {/* ✅ 섹션 전체 저장 */}
               {saveMode && (
                 <Box sx={{ position: "absolute", top: 10, right: 10 }}>
                   <Tooltip
-                    title={canSave ? "해설 저장(메모)" : "로그인(uid) 필요"}
+                    title={canSave ? "해설(섹션) 저장" : "로그인(uid) 필요"}
                     arrow
                   >
                     <span>
@@ -614,9 +617,9 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                             sectionIdx: idx,
                             sectionType: sec.type || "",
                             sectionTitle: sec.title || "",
-                            text: `${sec.title || ""}\n${(
-                              sec.content || []
-                            ).join("\n")}`.trim(),
+                            text: `${sec.title || ""}\n${(sec.content || []).join(
+                              "\n"
+                            )}`.trim(),
                           })
                         }
                         sx={iconBtnSx}
@@ -646,24 +649,61 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
                     }}
                   />
                 )}
-                <Typography sx={{ fontWeight: 900, fontSize: 16, pr: 6 }}>
+                <Typography sx={{ fontWeight: 900, fontSize: 16, pr: saveMode ? BTN_SPACE_PR : 0 }}>
                   {sec.title}
                 </Typography>
               </Stack>
 
+              {/* ✅ 한 줄씩 저장 */}
               <Stack spacing={0.75}>
                 {(Array.isArray(sec.content) ? sec.content : []).map((c, i) => (
-                  <Typography
+                  <Box
                     key={i}
                     sx={{
-                      lineHeight: 1.85,
-                      fontSize: 14.5,
-                      opacity: 0.95,
+                      position: "relative",
+                      pr: saveMode ? BTN_SPACE_PR : 0,
                     }}
                   >
-                    <span style={{ opacity: 0.7, marginRight: 6 }}>•</span>
-                    {c}
-                  </Typography>
+                    {saveMode && (
+                      <Box sx={cellBtnSx}>
+                        <Tooltip
+                          title={canSave ? "해설 한줄 저장" : "로그인(uid) 필요"}
+                          arrow
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={!canSave}
+                              onClick={() =>
+                                openClipDialog({
+                                  type: "analysisLine",
+                                  sectionIdx: idx,
+                                  sectionType: sec.type || "",
+                                  sectionTitle: sec.title || "",
+                                  lineIndex: i,
+                                  text: String(c || ""),
+                                })
+                              }
+                              sx={iconBtnSx}
+                            >
+                              <NotesRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Box>
+                    )}
+
+                    <Typography
+                      sx={{
+                        lineHeight: 1.85,
+                        fontSize: 14.5,
+                        opacity: 0.95,
+                      }}
+                    >
+                      <span style={{ opacity: 0.7, marginRight: 6 }}>•</span>
+                      {c}
+                    </Typography>
+                  </Box>
                 ))}
               </Stack>
             </Box>

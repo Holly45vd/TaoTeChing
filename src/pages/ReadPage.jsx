@@ -5,6 +5,12 @@ import ReadToolbar from "../components/read/ReadToolbar";
 import ChapterDetail from "../components/read/ChapterDetail";
 import ChapterNavModal from "../components/read/ChapterNavModal";
 
+// ✅ 저장함 페이지 추가
+import SavedPage from "./SavedPage";
+
+// ✅ 익명 로그인 보장 유틸 (우리가 만든 파일)
+import { ensureAnonymousAuth } from "../firebase/auth";
+
 const LAST_CHAPTER_KEY = "tao:lastChapter";
 
 function normalizeText(v) {
@@ -26,13 +32,17 @@ function chapterToSearchBlob(ch) {
         .map((s) => {
           const t = s?.title || "";
           const type = s?.type || "";
-          const content = Array.isArray(s?.content) ? s.content.join(" ") : String(s?.content || "");
+          const content = Array.isArray(s?.content)
+            ? s.content.join(" ")
+            : String(s?.content || "");
           return `${type} ${t} ${content}`;
         })
         .join(" ")
     : "";
 
-  return normalizeText(`${title} ${subtitle} ${keySentence} ${tags} ${lines} ${sections}`);
+  return normalizeText(
+    `${title} ${subtitle} ${keySentence} ${tags} ${lines} ${sections}`
+  );
 }
 
 export default function ReadPage() {
@@ -47,6 +57,37 @@ export default function ReadPage() {
   const [selectedTags, setSelectedTags] = useState([]);
 
   const [selected, setSelected] = useState(null);
+
+  // ✅ 저장함 패널 토글
+  const [savedOpen, setSavedOpen] = useState(false);
+
+  // ✅ 익명 로그인 uid
+  const [uid, setUid] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
+
+  // ✅ 앱 시작 시 익명 로그인 보장
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        setAuthLoading(true);
+        setAuthError("");
+        const user = await ensureAnonymousAuth();
+        if (mounted) setUid(user?.uid || "");
+      } catch (e) {
+        console.error("Anonymous auth failed:", e);
+        if (mounted) setAuthError(String(e?.message || e));
+      } finally {
+        if (mounted) setAuthLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const safeChapters = useMemo(() => {
     const arr = Array.isArray(chapters) ? chapters : [];
@@ -68,7 +109,9 @@ export default function ReadPage() {
     } else if (viewMode === "tag") {
       if (selectedTags.length > 0) {
         const set = new Set(selectedTags);
-        list = list.filter((ch) => (ch.tags || []).some((t) => set.has(String(t))));
+        list = list.filter((ch) =>
+          (ch.tags || []).some((t) => set.has(String(t)))
+        );
       }
     }
 
@@ -116,11 +159,34 @@ export default function ReadPage() {
     );
   }, [filteredChapters, selected]);
 
-  const prevChapter = currentIndex > 0 ? filteredChapters[currentIndex - 1] : null;
+  const prevChapter =
+    currentIndex > 0 ? filteredChapters[currentIndex - 1] : null;
   const nextChapter =
     currentIndex >= 0 && currentIndex < filteredChapters.length - 1
       ? filteredChapters[currentIndex + 1]
       : null;
+
+  // ✅ 저장함에서 특정 장 열기
+  const openChapterByNumber = (chapterNumber) => {
+    const target = safeChapters.find(
+      (c) => Number(c.chapter) === Number(chapterNumber)
+    );
+    if (!target) return;
+
+    setViewMode("range");
+    setSelectedTags([]);
+    setQuery("");
+
+    // range는 target 포함하는 10단위 자동 맞춤
+    const n = Number(target.chapter);
+    const start = Math.max(1, Math.floor((n - 1) / 10) * 10 + 1);
+    const end = Math.min(81, start + 9);
+    setRange({ start, end });
+
+    setSelected(target);
+    setSavedOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   if (loading) return <p>불러오는 중...</p>;
 
@@ -143,6 +209,53 @@ export default function ReadPage() {
         onOpenMenu={() => setMenuOpen(true)}
       />
 
+      {/* ✅ 상단: 저장함 토글 버튼 */}
+      <div
+        className="row"
+        style={{ justifyContent: "flex-end", marginBottom: 10 }}
+      >
+        <button
+          className={`tabBtn ${savedOpen ? "tabBtnActive" : ""}`}
+          type="button"
+          onClick={() => setSavedOpen((v) => !v)}
+          disabled={authLoading} // uid 준비되기 전엔 막기
+          title={authLoading ? "익명 로그인 중..." : ""}
+        >
+          {savedOpen ? "저장함 닫기" : "저장함 보기"}
+        </button>
+      </div>
+
+      {/* ✅ 익명 로그인 상태 표시(최소) */}
+      {authError && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>로그인 실패(익명)</h3>
+          <p className="small">
+            Firebase Console에서 <b>Authentication → Anonymous</b> 활성화했는지
+            확인해.
+          </p>
+          <p className="small" style={{ opacity: 0.8 }}>
+            {authError}
+          </p>
+        </div>
+      )}
+
+      {/* ✅ 저장함 패널 */}
+      {savedOpen && (
+        <div style={{ marginBottom: 16 }}>
+          {authLoading ? (
+            <div className="card">
+              <p className="small">익명 로그인 중…</p>
+            </div>
+          ) : uid ? (
+            <SavedPage uid={uid} onOpenChapter={openChapterByNumber} />
+          ) : (
+            <div className="card">
+              <p className="small">UID가 없어 저장함을 열 수 없어.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ✅ 메뉴 모달 */}
       <ChapterNavModal
         open={menuOpen}
@@ -164,7 +277,7 @@ export default function ReadPage() {
       {safeChapters.length === 0 ? (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>데이터 없음</h3>
-          <p className="small">쓰기 탭에서 장을 저장하면 여기에 표시돼.</p>
+          <p className="small">Firestore에 장 데이터가 없거나 권한 문제야.</p>
         </div>
       ) : filteredChapters.length === 0 ? (
         <div className="card">
@@ -179,11 +292,14 @@ export default function ReadPage() {
               setViewMode("tag");
               setSelectedTags([tag]);
               setQuery("");
-              setMenuOpen(true); // 태그 눌렀을 때 메뉴도 같이 열어주면 UX 좋음
+              setMenuOpen(true);
             }}
           />
 
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 16 }}>
+          <div
+            className="row"
+            style={{ justifyContent: "space-between", marginTop: 16 }}
+          >
             <button
               className="tabBtn"
               disabled={!prevChapter}

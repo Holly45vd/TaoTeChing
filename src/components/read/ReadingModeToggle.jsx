@@ -1,44 +1,36 @@
 // src/components/read/ReadingModeToggle.jsx
+import { Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 
-/**
- * ReadingModeToggle
- *
- * UX 목적
- * - "읽기 집중" 상태를 한 번에 전환
- * - 목록/부가 UI를 숨기고 본문 가독성 극대화
- *
- * UX 원칙
- * - ON/OFF 상태가 텍스트만 봐도 명확해야 함
- * - 토글 버튼은 스위치가 아니라 "모드 전환" 버튼
- * - 실수로 눌러도 바로 인지 가능
- *
- * Props
- * - value: boolean (집중 모드 여부)
- * - onChange: (next: boolean) => void
- */
-export default function ReadingModeToggle({ value, onChange }) {
-  const handleToggle = () => {
-    onChange?.(!value);
+export default function ReadingModeToggle({ value = "han_ko", onChange }) {
+  const handleChange = (_, next) => {
+    if (!next) return; // 같은 버튼 다시 누르면 null 나오는 것 방지
+    onChange?.(next);
   };
 
   return (
-    <button
-      type="button"
-      className={`tabBtn ${value ? "tabBtnActive" : ""}`}
-      onClick={handleToggle}
-      aria-pressed={value}
-      aria-label={value ? "집중 모드 끄기" : "집중 모드 켜기"}
-      title={
-        value
-          ? "집중 모드 끄기 (목록 다시 표시)"
-          : "집중 모드 켜기 (목록 숨김 + 본문 확장)"
-      }
-      style={{
-        whiteSpace: "nowrap",
-        fontWeight: value ? 900 : 500,
-      }}
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1}
+      alignItems={{ xs: "stretch", sm: "center" }}
+      justifyContent="space-between"
     >
-      {value ? "🧘 집중 모드 ON" : "🧘 집중 모드"}
-    </button>
+      <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>
+        보기 모드
+      </Typography>
+
+      <ToggleButtonGroup
+        value={value}
+        exclusive
+        onChange={handleChange}
+        size="small"
+        sx={{
+          alignSelf: { xs: "flex-start", sm: "auto" },
+          "& .MuiToggleButton-root": { px: 1.5, borderRadius: 2 },
+        }}
+      >
+        <ToggleButton value="han_ko">통으로</ToggleButton>
+        <ToggleButton value="lines">라인</ToggleButton>
+      </ToggleButtonGroup>
+    </Stack>
   );
 }

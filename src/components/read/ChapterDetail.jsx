@@ -15,6 +15,9 @@ import LinesSection from "./chapter/LinesSection";
 import AnalysisSection from "./chapter/AnalysisSection";
 import ClipDialog from "./chapter/ClipDialog";
 
+import HanKoSection from "../read/HanKoSection";
+import ReadingModeToggle from "./ReadingModeToggle";
+
 const cardSx = {
   borderRadius: 3,
   border: "1px solid",
@@ -31,6 +34,18 @@ function readSaveModeFromStorage() {
     return v == null ? true : v !== "false";
   } catch {
     return true;
+  }
+}
+
+/* =========================
+   ReadMode util
+========================= */
+function readReadModeFromStorage() {
+  try {
+    const v = localStorage.getItem("tao:readMode");
+    return v === "lines" ? "lines" : "han_ko"; // default: han_ko
+  } catch {
+    return "han_ko";
   }
 }
 
@@ -63,15 +78,24 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
   /* =========================
      SaveMode
   ========================= */
-  const [saveMode, setSaveMode] = useState(() =>
-    readSaveModeFromStorage()
-  );
+  const [saveMode, setSaveMode] = useState(() => readSaveModeFromStorage());
 
   useEffect(() => {
     try {
       localStorage.setItem("tao:saveMode", String(saveMode));
     } catch {}
   }, [saveMode]);
+
+  /* =========================
+     ReadMode (통 ↔ 라인)
+  ========================= */
+  const [readMode, setReadMode] = useState(() => readReadModeFromStorage());
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tao:readMode", String(readMode));
+    } catch {}
+  }, [readMode]);
 
   /* =========================
      Bookmark
@@ -168,17 +192,13 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
     return [...arr].sort((a, b) => Number(a.order) - Number(b.order));
   }, [chapter]);
 
-  const sections = useMemo(
-    () => chapter?.analysis?.sections || [],
-    [chapter]
-  );
+  const sections = useMemo(() => chapter?.analysis?.sections || [], [chapter]);
 
   if (!chapter) return null;
 
   /* =========================
      Payload Builders
   ========================= */
-
   const buildKeySentencePayload = () => ({
     type: "keySentence",
     text: chapter.analysis?.keySentence || "",
@@ -216,22 +236,24 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
 
       <Divider sx={{ my: 2.5 }} />
 
-      <LinesSection
-        lines={lines}
-        saveMode={saveMode}
-        canSave={canSave}
-        onSaveBoth={(line) =>
-          openClipDialog(buildHanKoPayload(line))
-        }
-      />
+      <ReadingModeToggle value={readMode} onChange={setReadMode} />
+
+      <Divider sx={{ my: 2 }} />
+
+      {readMode === "han_ko" ? (
+        <HanKoSection chapter={chapter} lines={lines} />
+      ) : (
+        <LinesSection
+          lines={lines}
+          saveMode={saveMode}
+          canSave={canSave}
+          onSaveBoth={(line) => openClipDialog(buildHanKoPayload(line))}
+        />
+      )}
 
       <Divider sx={{ my: 3 }} />
 
-      <AnalysisSection
-        sections={sections}
-        saveMode={saveMode}
-        canSave={canSave}
-      />
+      <AnalysisSection sections={sections} saveMode={saveMode} canSave={canSave} />
 
       <ClipDialog
         open={clipOpen}

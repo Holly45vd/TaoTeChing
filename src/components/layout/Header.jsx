@@ -16,6 +16,7 @@ export default function Header({ mode, setMode, user }) {
   }, [hasUser, isAnon, email]);
 
   const canWrite = hasUser && !isAnon;
+  const isAdmin = hasUser && !isAnon; // 🔧 현재는 이메일 로그인 유저 = 관리자
 
   const handleWriteClick = () => {
     if (!canWrite) {
@@ -23,6 +24,11 @@ export default function Header({ mode, setMode, user }) {
       return;
     }
     setMode?.("write");
+  };
+
+  const handleAdminClick = () => {
+    if (!isAdmin) return;
+    setMode?.("adminBatch");
   };
 
   return (
@@ -48,7 +54,12 @@ export default function Header({ mode, setMode, user }) {
           {/* 우측: 탭 + 인증 */}
           <div
             className="row"
-            style={{ gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}
+            style={{
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+            }}
           >
             {/* 모드 탭 */}
             <div className="tabs" aria-label="메뉴">
@@ -67,17 +78,40 @@ export default function Header({ mode, setMode, user }) {
                 type="button"
                 aria-label="쓰기 모드"
                 title={canWrite ? "동화 / 해설 작성" : "이메일 로그인 후 작성 가능"}
-                style={{
-                  opacity: canWrite ? 1 : 0.7,
-                }}
+                style={{ opacity: canWrite ? 1 : 0.7 }}
               >
                 쓰기
               </button>
+
+              {/* 🔧 관리자 전용: DB 일괄 업데이트 */}
+              {isAdmin && (
+                <button
+                  className={`tabBtn ${mode === "adminBatch" ? "tabBtnActive" : ""}`}
+                  onClick={handleAdminClick}
+                  type="button"
+                  aria-label="챕터 데이터 일괄 업데이트"
+                  title="챕터 스키마/데이터 일괄 반영"
+                  style={{
+                    fontWeight: 700,
+                    opacity: 0.85,
+                  }}
+                >
+                  DB 업데이트
+                </button>
+              )}
             </div>
 
             {/* 인증 상태 */}
             <div className="row" style={{ gap: 8, alignItems: "center" }}>
-              <span className="small" style={{ opacity: 0.78, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span
+                className="small"
+                style={{
+                  opacity: 0.78,
+                  maxWidth: 220,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {authLabel}
               </span>
 
@@ -108,8 +142,12 @@ export default function Header({ mode, setMode, user }) {
 
         {/* 보조 안내: 게스트일 때만 노출 */}
         {hasUser && isAnon ? (
-          <div className="small" style={{ marginTop: 10, opacity: 0.75, lineHeight: 1.5 }}>
-            게스트로 이용 중이야. <b>클립/저장</b>은 가능하지만, <b>쓰기</b>는 이메일 로그인 후 가능해.
+          <div
+            className="small"
+            style={{ marginTop: 10, opacity: 0.75, lineHeight: 1.5 }}
+          >
+            게스트로 이용 중이야. <b>클립/저장</b>은 가능하지만,{" "}
+            <b>쓰기</b>와 <b>DB 업데이트</b>는 이메일 로그인 후 가능해.
           </div>
         ) : null}
       </header>

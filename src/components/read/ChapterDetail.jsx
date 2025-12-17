@@ -3,14 +3,17 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Paper, Divider, Snackbar, Alert } from "@mui/material";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-import { toggleChapterBookmark, getChapterBookmark, addClip } from "../../firebase/firestore";
+import {
+  toggleChapterBookmark,
+  getChapterBookmark,
+  addClip,
+} from "../../firebase/firestore";
 
 import ChapterHeader from "./chapter/ChapterHeader";
 import KeySentenceCard from "./chapter/KeySentenceCard";
 import LinesSection from "./chapter/LinesSection";
 import AnalysisSection from "./chapter/AnalysisSection";
 import ClipDialog from "./chapter/ClipDialog";
-import StoryDrawer from "./chapter/StoryDrawer";
 
 const cardSx = {
   borderRadius: 3,
@@ -19,20 +22,22 @@ const cardSx = {
   bgcolor: "background.paper",
 };
 
+/* =========================
+   SaveMode util
+========================= */
 function readSaveModeFromStorage() {
   try {
     const v = localStorage.getItem("tao:saveMode");
-    if (v == null) return true; // 기본값 true
-    return v !== "false";
+    return v == null ? true : v !== "false";
   } catch {
     return true;
   }
 }
 
 export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
-  // -----------------------------
-  // Auth / UID
-  // -----------------------------
+  /* =========================
+     Auth / UID
+  ========================= */
   const [uid, setUid] = useState(uidProp || "");
 
   useEffect(() => {
@@ -42,30 +47,35 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
     }
 
     const auth = getAuth();
-    if (auth.currentUser?.uid) setUid(auth.currentUser.uid);
+    if (auth.currentUser?.uid) {
+      setUid(auth.currentUser.uid);
+    }
 
-    const unsub = onAuthStateChanged(auth, (user) => setUid(user?.uid || ""));
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid || "");
+    });
+
     return () => unsub();
   }, [uidProp]);
 
   const canSave = Boolean(uid);
 
-  // -----------------------------
-  // SaveMode (localStorage)
-  // -----------------------------
-  const [saveMode, setSaveMode] = useState(() => readSaveModeFromStorage());
+  /* =========================
+     SaveMode
+  ========================= */
+  const [saveMode, setSaveMode] = useState(() =>
+    readSaveModeFromStorage()
+  );
 
   useEffect(() => {
     try {
       localStorage.setItem("tao:saveMode", String(saveMode));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [saveMode]);
 
-  // -----------------------------
-  // Bookmark state
-  // -----------------------------
+  /* =========================
+     Bookmark
+  ========================= */
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
@@ -76,8 +86,7 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
     (async () => {
       try {
         const data = await getChapterBookmark(uid, chapter.chapter);
-        if (!mounted) return;
-        setIsBookmarked(Boolean(data?.isSaved));
+        if (mounted) setIsBookmarked(Boolean(data?.isSaved));
       } catch {
         if (mounted) setIsBookmarked(false);
       }
@@ -88,7 +97,12 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
     };
   }, [uid, chapter?.chapter]);
 
-  const [toast, setToast] = useState({ open: false, severity: "success", msg: "" });
+  const [toast, setToast] = useState({
+    open: false,
+    severity: "success",
+    msg: "",
+  });
+
   const showToast = useCallback((severity, msg) => {
     setToast({ open: true, severity, msg });
   }, []);
@@ -96,126 +110,87 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
   const toggleBookmark = useCallback(async () => {
     if (!canSave || !chapter?.chapter) return;
 
-    const prev = isBookmarked;
-    const next = !prev;
-
+    const next = !isBookmarked;
     try {
       setBookmarkLoading(true);
-      setIsBookmarked(next); // optimistic
+      setIsBookmarked(next);
       await toggleChapterBookmark(uid, chapter.chapter, next);
       showToast("success", next ? "장 저장 ON" : "장 저장 OFF");
     } catch {
-      setIsBookmarked(prev);
-      showToast("error", "북마크 저장 실패… (권한/네트워크 확인)");
+      setIsBookmarked((p) => !p);
+      showToast("error", "북마크 저장 실패");
     } finally {
       setBookmarkLoading(false);
     }
   }, [canSave, chapter?.chapter, isBookmarked, uid, showToast]);
 
-  // -----------------------------
-  // Clip dialog state
-  // -----------------------------
+  /* =========================
+     Clip Dialog
+  ========================= */
   const [clipOpen, setClipOpen] = useState(false);
   const [clipPayload, setClipPayload] = useState(null);
   const [clipNote, setClipNote] = useState("");
 
   const openClipDialog = useCallback((payload) => {
     setClipPayload(payload);
-    setClipNote(payload?.note || "");
+    setClipNote("");
     setClipOpen(true);
   }, []);
 
-  const closeClipDialog = useCallback(() => {
+  const closeClipDialog = () => {
     setClipOpen(false);
     setClipPayload(null);
     setClipNote("");
-  }, []);
+  };
 
-  const handleSaveClip = useCallback(async () => {
+  const handleSaveClip = async () => {
     if (!canSave || !clipPayload || !chapter?.chapter) return;
 
     try {
       await addClip(uid, {
         ...clipPayload,
-        note: clipNote?.trim() || "",
+        note: clipNote.trim(),
         chapter: chapter.chapter,
         chapterTitle: chapter.title || "",
       });
-
       showToast("success", "저장됨 (클립)");
       closeClipDialog();
     } catch {
-      showToast("error", "저장 실패… (권한/네트워크 확인)");
+      showToast("error", "저장 실패");
     }
-  }, [canSave, clipPayload, clipNote, uid, chapter?.chapter, chapter?.title, showToast, closeClipDialog]);
+  };
 
-  // -----------------------------
-  // Story Drawer
-  // -----------------------------
-  const [storyOpen, setStoryOpen] = useState(false);
-
-  // -----------------------------
-  // Derived Data
-  // -----------------------------
+  /* =========================
+     Data
+  ========================= */
   const lines = useMemo(() => {
     const arr = Array.isArray(chapter?.lines) ? chapter.lines : [];
     return [...arr].sort((a, b) => Number(a.order) - Number(b.order));
   }, [chapter]);
 
-  const sections = useMemo(() => {
-    return Array.isArray(chapter?.analysis?.sections) ? chapter.analysis.sections : [];
-  }, [chapter]);
+  const sections = useMemo(
+    () => chapter?.analysis?.sections || [],
+    [chapter]
+  );
 
   if (!chapter) return null;
 
-  // -----------------------------
-  // Clip payload builders (일관성)
-  // -----------------------------
+  /* =========================
+     Payload Builders
+  ========================= */
+
   const buildKeySentencePayload = () => ({
     type: "keySentence",
     text: chapter.analysis?.keySentence || "",
   });
 
-  const buildHanPayload = (line) => ({
-    type: "han",
+  // ✅ 유일한 라인 저장 payload (원문 + 번역)
+  const buildHanKoPayload = (line) => ({
+    type: "han_ko",
     lineOrder: line?.order,
-    text: line?.han || "",
-  });
-
-  const buildKoPayload = (line) => ({
-    type: "ko",
-    lineOrder: line?.order,
-    text: line?.ko || "",
-  });
-
-  // ✅ 추가: 원문+번역 함께 저장
-  const buildHanKoPayload = (line) => {
-    const han = line?.han || "";
-    const ko = line?.ko || "";
-    return {
-      type: "han_ko", // SavedPage에서 타입 필터가 하드코딩이면 여기도 추가 필요
-      lineOrder: line?.order,
-      han,
-      ko,
-      text: `【원문】\n${han}\n\n【번역】\n${ko}`.trim(),
-    };
-  };
-
-  const buildAnalysisSectionPayload = (sec, idx) => ({
-    type: "analysis",
-    sectionIdx: idx,
-    sectionType: sec?.type || "",
-    sectionTitle: sec?.title || "",
-    text: `${sec?.title || ""}\n${Array.isArray(sec?.content) ? sec.content.join("\n") : ""}`.trim(),
-  });
-
-  const buildAnalysisLinePayload = (sec, idx, c, i) => ({
-    type: "analysisLine",
-    sectionIdx: idx,
-    sectionType: sec?.type || "",
-    sectionTitle: sec?.title || "",
-    lineIndex: i,
-    text: String(c || ""),
+    han: line?.han || "",
+    ko: line?.ko || "",
+    text: `【원문】\n${line?.han || ""}\n\n【번역】\n${line?.ko || ""}`.trim(),
   });
 
   return (
@@ -230,7 +205,6 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         bookmarkLoading={bookmarkLoading}
         toggleBookmark={toggleBookmark}
         onTagClick={onTagClick}
-        onOpenStory={() => setStoryOpen(true)}
       />
 
       <KeySentenceCard
@@ -246,9 +220,9 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         lines={lines}
         saveMode={saveMode}
         canSave={canSave}
-        onSaveHan={(line) => openClipDialog(buildHanPayload(line))}
-        onSaveKo={(line) => openClipDialog(buildKoPayload(line))}
-        onSaveBoth={(line) => openClipDialog(buildHanKoPayload(line))} // ✅ 추가
+        onSaveBoth={(line) =>
+          openClipDialog(buildHanKoPayload(line))
+        }
       />
 
       <Divider sx={{ my: 3 }} />
@@ -257,8 +231,6 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         sections={sections}
         saveMode={saveMode}
         canSave={canSave}
-        onSaveSection={(sec, idx) => openClipDialog(buildAnalysisSectionPayload(sec, idx))}
-        onSaveLine={(sec, idx, c, i) => openClipDialog(buildAnalysisLinePayload(sec, idx, c, i))}
       />
 
       <ClipDialog
@@ -271,26 +243,12 @@ export default function ChapterDetail({ chapter, onTagClick, uid: uidProp }) {
         canSave={canSave}
       />
 
-      <StoryDrawer
-        open={storyOpen}
-        onClose={() => setStoryOpen(false)}
-        chapterNumber={chapter.chapter}
-        chapterTitle={chapter.title}
-        uid={uid}
-        saveMode={saveMode}
-      />
-
       <Snackbar
         open={toast.open}
         autoHideDuration={1800}
         onClose={() => setToast((p) => ({ ...p, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          severity={toast.severity}
-          variant="filled"
-          onClose={() => setToast((p) => ({ ...p, open: false }))}
-        >
+        <Alert severity={toast.severity} variant="filled">
           {toast.msg}
         </Alert>
       </Snackbar>

@@ -1,4 +1,3 @@
-// src/components/read/chapter/LinesSection.jsx
 import { useMemo, useState } from "react";
 import {
   Box,
@@ -11,9 +10,7 @@ import {
   IconButton,
 } from "@mui/material";
 
-import ContentCutRoundedIcon from "@mui/icons-material/ContentCutRounded";
-import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
-import LibraryAddRoundedIcon from "@mui/icons-material/LibraryAddRounded"; // ✅ 추가: 둘 다 저장 아이콘
+import LibraryAddRoundedIcon from "@mui/icons-material/LibraryAddRounded";
 
 import hanjaDic from "../../../assets/hanjaDic";
 
@@ -64,7 +61,6 @@ function HanjaChar({ ch }) {
 
 function renderHanjaWithHint(text) {
   if (!text) return null;
-
   const chars = Array.from(text);
   return (
     <>
@@ -99,13 +95,6 @@ const iconBtnSx = {
   "&:hover": { bgcolor: "rgba(255,255,255,0.95)" },
 };
 
-const cellBtnSx = {
-  position: "absolute",
-  top: 6,
-  right: 6,
-  zIndex: 2,
-};
-
 const rowBothBtnSx = {
   position: "absolute",
   top: 6,
@@ -113,15 +102,11 @@ const rowBothBtnSx = {
   zIndex: 3,
 };
 
-const BTN_SPACE_PR = 5;
-
 export default function LinesSection({
   lines,
   saveMode,
   canSave,
-  onSaveHan,
-  onSaveKo,
-  onSaveBoth, // ✅ 추가: 원문+번역 함께 저장
+  onSaveBoth, // ✅ 원문+번역 함께 저장만 사용
   enableHanjaHint = true,
   emptyText = "원문 데이터가 없어.",
 }) {
@@ -192,7 +177,7 @@ export default function LinesSection({
               sx={{
                 ...softBoxSx,
                 p: 1.4,
-                position: "relative", // ✅ row 기준 버튼(둘 다 저장) 위해 필요
+                position: "relative",
                 transition: "120ms ease",
                 "&:hover": {
                   bgcolor: "rgba(0,0,0,0.035)",
@@ -203,7 +188,7 @@ export default function LinesSection({
                 gap: 2,
               }}
             >
-              {/* ✅ 원문+번역 함께 저장 (둘 다 모드에서만 노출) */}
+              {/* ✅ 저장 버튼: "둘 다 보기"에서만 */}
               {saveMode && view === "both" && (
                 <Box sx={rowBothBtnSx}>
                   <Tooltip title={canSave ? "원문+번역 클립 저장" : "로그인(uid) 필요"} arrow>
@@ -224,33 +209,14 @@ export default function LinesSection({
 
               {/* 원문 */}
               {(view === "both" || view === "han") && (
-                <Box sx={{ position: "relative" }}>
-                  {saveMode && (
-                    <Box sx={cellBtnSx}>
-                      <Tooltip title={canSave ? "원문 클립 저장" : "로그인(uid) 필요"} arrow>
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={!canSave}
-                            onClick={() => onSaveHan?.(line)}
-                            sx={iconBtnSx}
-                            aria-label="원문 클립 저장"
-                          >
-                            <ContentCutRoundedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Box>
-                  )}
-
+                <Box>
                   <Typography
                     sx={{
                       fontWeight: 400,
                       letterSpacing: 0.2,
                       lineHeight: 2.05,
                       fontSize: 16,
-                      pr: saveMode ? BTN_SPACE_PR : 0,
-                      pl: saveMode && view === "both" ? 5 : 0, // ✅ 좌상단 버튼 겹침 방지(둘 다 모드)
+                      pl: saveMode && view === "both" ? 5 : 0, // 버튼 겹침 방지
                       whiteSpace: "pre-wrap",
                     }}
                   >
@@ -261,31 +227,12 @@ export default function LinesSection({
 
               {/* 번역 */}
               {(view === "both" || view === "ko") && (
-                <Box sx={{ position: "relative" }}>
-                  {saveMode && (
-                    <Box sx={cellBtnSx}>
-                      <Tooltip title={canSave ? "번역 클립 저장" : "로그인(uid) 필요"} arrow>
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={!canSave}
-                            onClick={() => onSaveKo?.(line)}
-                            sx={iconBtnSx}
-                            aria-label="번역 클립 저장"
-                          >
-                            <NotesRoundedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Box>
-                  )}
-
+                <Box>
                   <Typography
                     sx={{
                       opacity: 0.92,
                       lineHeight: 1.8,
                       fontSize: 14.5,
-                      pr: saveMode ? BTN_SPACE_PR : 0,
                       whiteSpace: "pre-wrap",
                     }}
                   >

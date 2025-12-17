@@ -26,6 +26,9 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import BookmarkRemoveRoundedIcon from "@mui/icons-material/BookmarkRemoveRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
+import UnfoldLessRoundedIcon from "@mui/icons-material/UnfoldLessRounded";
 
 import {
   collection,
@@ -58,7 +61,17 @@ export default function SavedPage({ uid, onOpenChapter }) {
   const [chapterFilter, setChapterFilter] = useState("all");
   const [pinOnly, setPinOnly] = useState(false);
 
-  const [toast, setToast] = useState({ open: false, severity: "success", msg: "" });
+  // ✅ 필터 접기/펼치기 (기본 접힘 = 덜 복잡해 보이게)
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // ✅ 클립 더보기(개별)
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+
+  const [toast, setToast] = useState({
+    open: false,
+    severity: "success",
+    msg: "",
+  });
 
   const cardSx = {
     borderRadius: 3,
@@ -90,7 +103,11 @@ export default function SavedPage({ uid, onOpenChapter }) {
       setBookmarks(bm);
       setClips(cl);
     } catch (e) {
-      setToast({ open: true, severity: "error", msg: "저장함 불러오기 실패(권한/네트워크 확인)" });
+      setToast({
+        open: true,
+        severity: "error",
+        msg: "저장함 불러오기 실패(권한/네트워크 확인)",
+      });
     } finally {
       setLoading(false);
     }
@@ -119,7 +136,6 @@ export default function SavedPage({ uid, onOpenChapter }) {
 
     if (q.trim()) {
       const qq = q.trim().toLowerCase();
-      // bookmark은 텍스트가 없으니 chapter/title 정도만
       arr = arr.filter((b) => String(b.chapter).includes(qq));
     }
 
@@ -159,7 +175,9 @@ export default function SavedPage({ uid, onOpenChapter }) {
     }
 
     // pinned 우선 정렬
-    arr = [...arr].sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)));
+    arr = [...arr].sort(
+      (a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned))
+    );
     return arr;
   }, [clips, pinOnly, type, chapterFilter, q]);
 
@@ -171,15 +189,20 @@ export default function SavedPage({ uid, onOpenChapter }) {
       onOpenChapter(Number(n));
       return;
     }
-    // fallback: 아무 것도 안 돼도 복사/안내보다 "최소 동작"은 제공
-    setToast({ open: true, severity: "info", msg: `이동 콜백이 없어. ${n}장으로 이동 로직(onOpenChapter)을 연결해줘.` });
+    setToast({
+      open: true,
+      severity: "info",
+      msg: `이동 콜백이 없어. ${n}장으로 이동 로직(onOpenChapter)을 연결해줘.`,
+    });
   };
 
   async function removeBookmark(chapterNumber) {
     if (!uid) return;
     try {
       await toggleChapterBookmark(uid, chapterNumber, false);
-      setBookmarks((prev) => prev.filter((b) => String(b.chapter) !== String(chapterNumber)));
+      setBookmarks((prev) =>
+        prev.filter((b) => String(b.chapter) !== String(chapterNumber))
+      );
       setToast({ open: true, severity: "success", msg: "장 저장 OFF" });
     } catch (e) {
       setToast({ open: true, severity: "error", msg: "북마크 해제 실패" });
@@ -204,7 +227,9 @@ export default function SavedPage({ uid, onOpenChapter }) {
     try {
       const ref = doc(db, "users", uid, "clips", clip.id);
       await updateDoc(ref, { isPinned: next });
-      setClips((prev) => prev.map((c) => (c.id === clip.id ? { ...c, isPinned: next } : c)));
+      setClips((prev) =>
+        prev.map((c) => (c.id === clip.id ? { ...c, isPinned: next } : c))
+      );
     } catch (e) {
       setToast({ open: true, severity: "error", msg: "핀 변경 실패" });
     }
@@ -216,6 +241,17 @@ export default function SavedPage({ uid, onOpenChapter }) {
     if (t === "analysis") return "해설";
     if (t === "keySentence") return "핵심문장";
     return String(t || "");
+  };
+
+  const isExpanded = (id) => expandedIds.has(id);
+
+  const toggleExpand = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   if (!uid) {
@@ -232,7 +268,12 @@ export default function SavedPage({ uid, onOpenChapter }) {
   return (
     <Paper elevation={0} sx={{ ...cardSx }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: 1 }}
+      >
         <Stack spacing={0.25}>
           <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: -0.2 }}>
             저장함
@@ -242,13 +283,21 @@ export default function SavedPage({ uid, onOpenChapter }) {
           </Typography>
         </Stack>
 
-        <Tooltip title="새로고침" arrow>
-          <span>
-            <IconButton size="small" onClick={loadAll} disabled={loading}>
-              <RefreshRoundedIcon fontSize="small" />
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Tooltip title={filtersOpen ? "필터 접기" : "필터 열기"} arrow>
+            <IconButton size="small" onClick={() => setFiltersOpen((v) => !v)}>
+              <TuneRoundedIcon fontSize="small" />
             </IconButton>
-          </span>
-        </Tooltip>
+          </Tooltip>
+
+          <Tooltip title="새로고침" arrow>
+            <span>
+              <IconButton size="small" onClick={loadAll} disabled={loading}>
+                <RefreshRoundedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
       </Stack>
 
       {/* Tabs */}
@@ -257,7 +306,11 @@ export default function SavedPage({ uid, onOpenChapter }) {
         onChange={(_, v) => setTab(v)}
         sx={{
           minHeight: 40,
-          "& .MuiTab-root": { minHeight: 40, fontWeight: 900, textTransform: "none" },
+          "& .MuiTab-root": {
+            minHeight: 40,
+            fontWeight: 900,
+            textTransform: "none",
+          },
         }}
       >
         <Tab value="bookmarks" label={`장 저장 (${bookmarks.length})`} />
@@ -266,60 +319,72 @@ export default function SavedPage({ uid, onOpenChapter }) {
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Filters */}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        alignItems={{ xs: "stretch", sm: "center" }}
-        sx={{ mb: 1.5 }}
-      >
-        <TextField
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          size="small"
-          placeholder="검색 (메모/텍스트/장/타입)"
-          fullWidth
-        />
+      {/* Search (항상 노출: 가장 덜 부담) */}
+      <TextField
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        size="small"
+        placeholder="검색 (메모/텍스트/장/타입)"
+        fullWidth
+        sx={{ mb: filtersOpen ? 1.25 : 1.5 }}
+      />
 
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>장</InputLabel>
-          <Select
-            label="장"
-            value={chapterFilter}
-            onChange={(e) => setChapterFilter(e.target.value)}
-          >
-            {chapterOptions.map((c) => (
-              <MenuItem key={c} value={c}>
-                {c === "all" ? "전체" : `${c}장`}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {tab === "clips" && (
-          <>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>타입</InputLabel>
-              <Select label="타입" value={type} onChange={(e) => setType(e.target.value)}>
-                <MenuItem value="all">전체</MenuItem>
-                <MenuItem value="han">원문</MenuItem>
-                <MenuItem value="ko">번역</MenuItem>
-                <MenuItem value="analysis">해설</MenuItem>
-                <MenuItem value="keySentence">핵심문장</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button
-              size="small"
-              variant={pinOnly ? "contained" : "outlined"}
-              onClick={() => setPinOnly((p) => !p)}
-              sx={{ borderRadius: 999, fontWeight: 900, whiteSpace: "nowrap" }}
+      {/* Filters (접기/펼치기) */}
+      {filtersOpen && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          sx={{ mb: 1.5 }}
+        >
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>장</InputLabel>
+            <Select
+              label="장"
+              value={chapterFilter}
+              onChange={(e) => setChapterFilter(e.target.value)}
             >
-              {pinOnly ? "핀만" : "핀 필터"}
-            </Button>
-          </>
-        )}
-      </Stack>
+              {chapterOptions.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {c === "all" ? "전체" : `${c}장`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {tab === "clips" && (
+            <>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>타입</InputLabel>
+                <Select
+                  label="타입"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <MenuItem value="all">전체</MenuItem>
+                  <MenuItem value="han">원문</MenuItem>
+                  <MenuItem value="ko">번역</MenuItem>
+                  <MenuItem value="analysis">해설</MenuItem>
+                  <MenuItem value="keySentence">핵심문장</MenuItem>
+                </Select>
+              </FormControl>
+
+              <Button
+                size="small"
+                variant={pinOnly ? "contained" : "outlined"}
+                onClick={() => setPinOnly((p) => !p)}
+                sx={{
+                  borderRadius: 999,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {pinOnly ? "핀만" : "핀 필터"}
+              </Button>
+            </>
+          )}
+        </Stack>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -344,7 +409,7 @@ export default function SavedPage({ uid, onOpenChapter }) {
                   key={b.id || b.chapter}
                   sx={{
                     ...softBoxSx,
-                    p: 1.4,
+                    p: 1.25,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -366,10 +431,7 @@ export default function SavedPage({ uid, onOpenChapter }) {
                     </Tooltip>
 
                     <Tooltip title="장 저장 OFF" arrow>
-                      <IconButton
-                        size="small"
-                        onClick={() => removeBookmark(b.chapter)}
-                      >
+                      <IconButton size="small" onClick={() => removeBookmark(b.chapter)}>
                         <BookmarkRemoveRoundedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -394,109 +456,158 @@ export default function SavedPage({ uid, onOpenChapter }) {
                 </Typography>
               </Box>
             ) : (
-              filteredClips.map((c) => (
-                <Box
-                  key={c.id}
-                  sx={{
-                    ...softBoxSx,
-                    p: 1.4,
-                    position: "relative",
-                    transition: "120ms ease",
-                    "&:hover": {
-                      bgcolor: "rgba(0,0,0,0.035)",
-                      borderColor: "rgba(0,0,0,0.14)",
-                    },
-                  }}
-                >
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Chip
-                          label={`${c.chapter}장`}
-                          size="small"
-                          sx={{ borderRadius: 2, fontWeight: 900, bgcolor: "rgba(0,0,0,0.06)" }}
-                        />
-                        <Chip
-                          label={typeLabel(c.type)}
-                          size="small"
-                          variant="outlined"
-                          sx={{ borderRadius: 2, fontWeight: 900 }}
-                        />
-                        {c.isPinned && (
+              filteredClips.map((c) => {
+                const expanded = isExpanded(c.id);
+                const hasText = Boolean(c.text && String(c.text).trim());
+                const canExpand = hasText && String(c.text).length > 140;
+
+                return (
+                  <Box
+                    key={c.id}
+                    sx={{
+                      ...softBoxSx,
+                      p: 1.25,
+                      transition: "120ms ease",
+                      "&:hover": {
+                        bgcolor: "rgba(0,0,0,0.035)",
+                        borderColor: "rgba(0,0,0,0.14)",
+                      },
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="flex-start"
+                      gap={1}
+                    >
+                      <Stack spacing={0.6} sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          flexWrap="wrap"
+                        >
                           <Chip
-                            label="PIN"
+                            label={`${c.chapter}장`}
                             size="small"
-                            sx={{ borderRadius: 2, fontWeight: 900, bgcolor: "rgba(0,0,0,0.06)" }}
+                            sx={{
+                              borderRadius: 2,
+                              fontWeight: 900,
+                              bgcolor: "rgba(0,0,0,0.06)",
+                            }}
                           />
+                          <Chip
+                            label={typeLabel(c.type)}
+                            size="small"
+                            variant="outlined"
+                            sx={{ borderRadius: 2, fontWeight: 900 }}
+                          />
+                          {c.isPinned && (
+                            <Chip
+                              label="PIN"
+                              size="small"
+                              sx={{
+                                borderRadius: 2,
+                                fontWeight: 900,
+                                bgcolor: "rgba(0,0,0,0.06)",
+                              }}
+                            />
+                          )}
+                        </Stack>
+
+                        {c.sectionTitle && (
+                          <Typography sx={{ fontWeight: 900, fontSize: 14.5 }} noWrap>
+                            {c.sectionTitle}
+                          </Typography>
+                        )}
+
+                        {hasText && (
+                          <Typography
+                            sx={{
+                              whiteSpace: "pre-wrap",
+                              lineHeight: 1.75,
+                              fontSize: 14.5,
+                              opacity: 0.95,
+                              wordBreak: "break-word",
+                              ...(expanded
+                                ? {}
+                                : {
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }),
+                            }}
+                          >
+                            {c.text}
+                          </Typography>
+                        )}
+
+                        {canExpand && (
+                          <Button
+                            size="small"
+                            onClick={() => toggleExpand(c.id)}
+                            startIcon={
+                              expanded ? <UnfoldLessRoundedIcon /> : <UnfoldMoreRoundedIcon />
+                            }
+                            sx={{
+                              alignSelf: "flex-start",
+                              borderRadius: 999,
+                              fontWeight: 900,
+                              px: 1,
+                            }}
+                          >
+                            {expanded ? "접기" : "더보기"}
+                          </Button>
+                        )}
+
+                        {c.note && (
+                          <Box
+                            sx={{
+                              mt: 0.5,
+                              p: 1,
+                              borderRadius: 2,
+                              border: "1px solid rgba(0,0,0,0.08)",
+                              bgcolor: "rgba(255,255,255,0.7)",
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                              메모
+                            </Typography>
+                            <Typography sx={{ fontSize: 14.2, lineHeight: 1.7 }}>
+                              {c.note}
+                            </Typography>
+                          </Box>
                         )}
                       </Stack>
 
-                      {c.sectionTitle && (
-                        <Typography sx={{ fontWeight: 900, fontSize: 14.5 }} noWrap>
-                          {c.sectionTitle}
-                        </Typography>
-                      )}
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Tooltip title={c.isPinned ? "핀 해제" : "핀 고정"} arrow>
+                          <IconButton size="small" onClick={() => togglePin(c)}>
+                            {c.isPinned ? (
+                              <PushPinRoundedIcon fontSize="small" />
+                            ) : (
+                              <PushPinOutlinedIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
 
-                      {c.text && (
-                        <Typography
-                          sx={{
-                            whiteSpace: "pre-wrap",
-                            lineHeight: 1.75,
-                            fontSize: 14.5,
-                            opacity: 0.95,
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {c.text}
-                        </Typography>
-                      )}
+                        <Tooltip title="해당 장 열기" arrow>
+                          <IconButton size="small" onClick={() => openChapter(c.chapter)}>
+                            <OpenInNewRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
 
-                      {c.note && (
-                        <Box
-                          sx={{
-                            mt: 1,
-                            p: 1,
-                            borderRadius: 2,
-                            border: "1px solid rgba(0,0,0,0.08)",
-                            bgcolor: "rgba(255,255,255,0.7)",
-                          }}
-                        >
-                          <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                            메모
-                          </Typography>
-                          <Typography sx={{ fontSize: 14.2, lineHeight: 1.7 }}>
-                            {c.note}
-                          </Typography>
-                        </Box>
-                      )}
+                        <Tooltip title="삭제" arrow>
+                          <IconButton size="small" onClick={() => deleteClip(c.id)}>
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Stack>
-
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Tooltip title={c.isPinned ? "핀 해제" : "핀 고정"} arrow>
-                        <IconButton size="small" onClick={() => togglePin(c)}>
-                          {c.isPinned ? (
-                            <PushPinRoundedIcon fontSize="small" />
-                          ) : (
-                            <PushPinOutlinedIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-
-                      <Tooltip title="해당 장 열기" arrow>
-                        <IconButton size="small" onClick={() => openChapter(c.chapter)}>
-                          <OpenInNewRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-
-                      <Tooltip title="삭제" arrow>
-                        <IconButton size="small" onClick={() => deleteClip(c.id)}>
-                          <DeleteOutlineRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </Stack>
-                </Box>
-              ))
+                  </Box>
+                );
+              })
             )}
           </Stack>
         </>

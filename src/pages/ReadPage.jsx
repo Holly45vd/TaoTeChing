@@ -5,11 +5,19 @@ import ReadToolbar from "../components/read/ReadToolbar";
 import ChapterDetail from "../components/read/ChapterDetail";
 import ChapterNavModal from "../components/read/ChapterNavModal";
 
-// ✅ 저장함 페이지 추가
+// ✅ 저장함
 import SavedPage from "./SavedPage";
 
-// ✅ 익명 로그인 보장 유틸 (우리가 만든 파일)
-import { ensureAnonymousAuth } from "../firebase/auth";
+import {
+  Box,
+  Drawer,
+  IconButton,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import BookmarksRoundedIcon from "@mui/icons-material/BookmarksRounded";
 
 const LAST_CHAPTER_KEY = "tao:lastChapter";
 
@@ -45,7 +53,11 @@ function chapterToSearchBlob(ch) {
   );
 }
 
-export default function ReadPage() {
+/**
+ * props:
+ * - uid?: string  (App에서 전달)
+ */
+export default function ReadPage({ uid }) {
   const { chapters, loading, error } = useChapters();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,36 +70,8 @@ export default function ReadPage() {
 
   const [selected, setSelected] = useState(null);
 
-  // ✅ 저장함 패널 토글
+  // ✅ 저장함 Drawer
   const [savedOpen, setSavedOpen] = useState(false);
-
-  // ✅ 익명 로그인 uid
-  const [uid, setUid] = useState("");
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState("");
-
-  // ✅ 앱 시작 시 익명 로그인 보장
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        setAuthLoading(true);
-        setAuthError("");
-        const user = await ensureAnonymousAuth();
-        if (mounted) setUid(user?.uid || "");
-      } catch (e) {
-        console.error("Anonymous auth failed:", e);
-        if (mounted) setAuthError(String(e?.message || e));
-      } finally {
-        if (mounted) setAuthLoading(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const safeChapters = useMemo(() => {
     const arr = Array.isArray(chapters) ? chapters : [];
@@ -201,60 +185,42 @@ export default function ReadPage() {
 
   return (
     <div>
-      <ReadToolbar
-        viewMode={viewMode}
-        onViewMode={setViewMode}
-        query={query}
-        onQuery={setQuery}
-        onOpenMenu={() => setMenuOpen(true)}
-      />
-
-      {/* ✅ 상단: 저장함 토글 버튼 */}
+      {/* 상단 툴바 + 저장함 버튼(오른쪽) */}
       <div
         className="row"
-        style={{ justifyContent: "flex-end", marginBottom: 10 }}
+        style={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 10,
+        }}
       >
-        <button
-          className={`tabBtn ${savedOpen ? "tabBtnActive" : ""}`}
-          type="button"
-          onClick={() => setSavedOpen((v) => !v)}
-          disabled={authLoading} // uid 준비되기 전엔 막기
-          title={authLoading ? "익명 로그인 중..." : ""}
-        >
-          {savedOpen ? "저장함 닫기" : "저장함 보기"}
-        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ReadToolbar
+            viewMode={viewMode}
+            onViewMode={setViewMode}
+            query={query}
+            onQuery={setQuery}
+            onOpenMenu={() => setMenuOpen(true)}
+          />
+        </div>
+
+        <Tooltip title="저장함" arrow>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => setSavedOpen(true)}
+              sx={{
+                border: "1px solid rgba(0,0,0,0.10)",
+                bgcolor: "rgba(0,0,0,0.02)",
+                "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+              }}
+            >
+              <BookmarksRoundedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
       </div>
-
-      {/* ✅ 익명 로그인 상태 표시(최소) */}
-      {authError && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <h3 style={{ marginTop: 0 }}>로그인 실패(익명)</h3>
-          <p className="small">
-            Firebase Console에서 <b>Authentication → Anonymous</b> 활성화했는지
-            확인해.
-          </p>
-          <p className="small" style={{ opacity: 0.8 }}>
-            {authError}
-          </p>
-        </div>
-      )}
-
-      {/* ✅ 저장함 패널 */}
-      {savedOpen && (
-        <div style={{ marginBottom: 16 }}>
-          {authLoading ? (
-            <div className="card">
-              <p className="small">익명 로그인 중…</p>
-            </div>
-          ) : uid ? (
-            <SavedPage uid={uid} onOpenChapter={openChapterByNumber} />
-          ) : (
-            <div className="card">
-              <p className="small">UID가 없어 저장함을 열 수 없어.</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ✅ 메뉴 모달 */}
       <ChapterNavModal
@@ -273,7 +239,56 @@ export default function ReadPage() {
         query={query}
       />
 
-      {/* ✅ 본문 풀폭 */}
+      {/* ✅ 저장함 Drawer */}
+      <Drawer
+        anchor="right"
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
+        PaperProps={{
+          sx: {
+            width: { xs: "92vw", sm: 540 },
+            bgcolor: "background.paper",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            px: 2,
+            pt: 2,
+            pb: 1.25,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            borderBottom: "1px solid rgba(0,0,0,0.08)",
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 900, letterSpacing: -0.2 }}>
+              저장함
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              장 저장 / 클립 / 메모
+            </Typography>
+          </Box>
+
+          <IconButton size="small" onClick={() => setSavedOpen(false)}>
+            <CloseRoundedIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ p: 2 }}>
+          {uid ? (
+            <SavedPage uid={uid} onOpenChapter={openChapterByNumber} />
+          ) : (
+            <div className="card">
+              <p className="small">로그인이 필요해.</p>
+            </div>
+          )}
+        </Box>
+      </Drawer>
+
+      {/* ✅ 본문 */}
       {safeChapters.length === 0 ? (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>데이터 없음</h3>
@@ -288,6 +303,7 @@ export default function ReadPage() {
         <>
           <ChapterDetail
             chapter={selected}
+            uid={uid}
             onTagClick={(tag) => {
               setViewMode("tag");
               setSelectedTags([tag]);
@@ -296,29 +312,42 @@ export default function ReadPage() {
             }}
           />
 
+          {/* ✅ 하단 네비: Sticky로 가볍게 */}
           <div
-            className="row"
-            style={{ justifyContent: "space-between", marginTop: 16 }}
+            style={{
+              position: "sticky",
+              bottom: 0,
+              marginTop: 16,
+              paddingTop: 10,
+              background:
+                "linear-gradient(transparent, rgba(255,255,255,0.92) 35%)",
+              backdropFilter: "blur(4px)",
+            }}
           >
-            <button
-              className="tabBtn"
-              disabled={!prevChapter}
-              onClick={() => prevChapter && setSelected(prevChapter)}
+            <div
+              className="row"
+              style={{ justifyContent: "space-between", alignItems: "center" }}
             >
-              ← 이전
-            </button>
+              <button
+                className="tabBtn"
+                disabled={!prevChapter}
+                onClick={() => prevChapter && setSelected(prevChapter)}
+              >
+                ← 이전
+              </button>
 
-            <div className="small">
-              {currentIndex + 1} / {filteredChapters.length}
+              <div className="small">
+                {currentIndex + 1} / {filteredChapters.length}
+              </div>
+
+              <button
+                className="tabBtn"
+                disabled={!nextChapter}
+                onClick={() => nextChapter && setSelected(nextChapter)}
+              >
+                다음 →
+              </button>
             </div>
-
-            <button
-              className="tabBtn"
-              disabled={!nextChapter}
-              onClick={() => nextChapter && setSelected(nextChapter)}
-            >
-              다음 →
-            </button>
           </div>
         </>
       ) : (

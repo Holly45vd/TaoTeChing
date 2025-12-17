@@ -1,70 +1,62 @@
+// src/App.jsx
 import { useEffect, useState } from "react";
-import { getAuth, signInAnonymously } from "firebase/auth";
 
-import WritePage from "./pages/WritePage";
+import { ensureAnonymousAuth, subscribeAuth } from "./firebase/auth";
+
 import ReadPage from "./pages/ReadPage";
+import WritePage from "./pages/WritePage";
 import HanjaMapBuilder from "./pages/HanjaMapBuilder";
+import Header from "./components/layout/Header";
 
 export default function App() {
-  const [mode, setMode] = useState("read"); // 이제 read만 써도 됨
+  const [mode, setMode] = useState("read"); // read | write | hanja
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
-  // ✅ 앱 시작 시 익명 로그인 (1회)
+  // ✅ Auth 상태 구독 + 익명 보장
   useEffect(() => {
-    async function ensureAnonLogin() {
-      const auth = getAuth();
+    ensureAnonymousAuth();
 
-      // 이미 로그인돼 있으면 재시도 안 함
-      if (auth.currentUser) {
-        console.log(
-          "✅ already logged in:",
-          auth.currentUser.uid,
-          "isAnon:",
-          auth.currentUser.isAnonymous
-        );
-        return;
+    const unsub = subscribeAuth((u) => {
+      setUser(u || null);
+      setAuthReady(true);
+
+      if (u) {
+        console.log("✅ auth:", u.uid, "isAnon:", u.isAnonymous, "email:", u.email);
+      } else {
+        console.log("⚠️ no auth user");
       }
+    });
 
-      try {
-        const cred = await signInAnonymously(auth);
-        console.log(
-          "✅ anon login OK uid:",
-          cred.user.uid,
-          "isAnon:",
-          cred.user.isAnonymous
-        );
-      } catch (e) {
-        console.error("❌ anon login FAIL:", e?.code, e?.message, e);
-      }
-    }
-
-    ensureAnonLogin();
+    return () => unsub();
   }, []);
+
+  // ✅ 게스트/미인증이 write로 들어가면 read로 되돌림 (안전장치)
+  useEffect(() => {
+    if (!authReady) return;
+    if (mode !== "write") return;
+
+    if (!user || user.isAnonymous) {
+      setMode("read");
+    }
+  }, [authReady, mode, user]);
+
+  if (!authReady) {
+    return (
+      <div className="container">
+        <div className="card">인증 초기화 중…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
-      <header className="card" style={{ marginBottom: 12 }}>
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20 }}>도덕경</h1>
-            <div className="small">
-              읽기 · 저장 · 개인 정리
-            </div>
-          </div>
-
-          <div className="tabs">
-            <button
-              className={`tabBtn ${mode === "read" ? "tabBtnActive" : ""}`}
-              onClick={() => setMode("read")}
-              type="button"
-            >
-              읽기
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header mode={mode} setMode={setMode} user={user} />
 
       <main className="card">
-        {mode === "read" ? <ReadPage /> : <HanjaMapBuilder />}
+        {mode === "read" && <ReadPage uid={user?.uid} />}
+        {mode === "write" && <WritePage uid={user?.uid} user={user} />}
+        {mode === "hanja" && <HanjaMapBuilder />}
       </main>
     </div>
   );

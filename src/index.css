@@ -106,3 +106,14 @@ textarea:focus {
   color: #6b6b6b;
   font-size: 12px;
 }
+
+/* optional: ReadToolbar UX 보강 */
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tabBtn {
+  white-space: nowrap;
+}

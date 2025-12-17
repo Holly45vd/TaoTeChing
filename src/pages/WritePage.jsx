@@ -5,7 +5,7 @@ import LineEditor from "../components/write/LineEditor";
 import SectionEditor from "../components/write/SectionEditor";
 import { normalizeChapterForm } from "../utils/normalize";
 import { saveChapter } from "../firebase/firestore";
-
+import StoryWriter from "../components/write/StoryWriter";
 /**
  * JSON -> form state로 변환 (UI 입력용 필드 포함)
  * - tags[] -> tagsText
@@ -218,6 +218,7 @@ export default function WritePage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>쓰기</h2>
+      <StoryWriter />
       <p className="small">폼 입력 + JSON Import/Export → Firestore 저장</p>
 
       {message && (

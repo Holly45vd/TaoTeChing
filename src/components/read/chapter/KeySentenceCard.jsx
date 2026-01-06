@@ -19,7 +19,7 @@ export default function KeySentenceCard({
   saveMode,
   canSave,
   onSave,
-  label = "핵심 문장",
+  label = "",
 }) {
   if (!keySentence) return null;
 

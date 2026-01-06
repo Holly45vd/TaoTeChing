@@ -5,13 +5,11 @@ import {
   Typography,
   Tooltip,
   IconButton,
-  Switch,
-  FormControlLabel,
   Box,
 } from "@mui/material";
 import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
-import AutoStoriesRoundedIcon from "@mui/icons-material/AutoStoriesRounded";
+import NoteAltOutlinedIcon from "@mui/icons-material/NoteAltOutlined";
 
 const actionBtnSx = {
   border: "1px solid rgba(0,0,0,0.10)",
@@ -21,15 +19,15 @@ const actionBtnSx = {
 
 export default function ChapterHeader({
   chapter,
-  saveMode,
-  setSaveMode,
+  // saveMode, setSaveMode,  // ❌ 저장모드 UI 제거
   canSave,
   isBookmarked,
   bookmarkLoading,
   toggleBookmark,
   onTagClick,
-  onOpenStory,
-  showUid = false, // ✅ 기본은 uid 숨김 (필요하면 true로)
+  // onOpenStory,           // ❌ 동화 제거
+  onOpenMemo,              // ✅ 메모 열기 (새로 추가)
+  showUid = false,
   uid,
 }) {
   const chapNum = chapter?.chapter ?? "";
@@ -38,11 +36,9 @@ export default function ChapterHeader({
 
   const bookmarkTitle = !canSave
     ? "로그인(uid) 필요"
-    : saveMode
-      ? isBookmarked
-        ? "이 장 저장 OFF"
-        : "이 장 저장 ON"
-      : "저장모드를 켜면 장 저장이 가능해";
+    : isBookmarked
+      ? "이 장 저장 해제"
+      : "이 장 저장";
 
   return (
     <Stack spacing={1.2}>
@@ -54,7 +50,13 @@ export default function ChapterHeader({
         flexWrap="wrap"
       >
         {/* Left: Chapter meta */}
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          flexWrap="wrap"
+          sx={{ minWidth: 0 }}
+        >
           <Chip
             label={chapNum ? `${chapNum}장` : "장"}
             size="small"
@@ -78,54 +80,26 @@ export default function ChapterHeader({
 
         {/* Right: actions */}
         <Stack direction="row" spacing={1} alignItems="center">
-          <FormControlLabel
-            sx={{ mr: 0, userSelect: "none" }}
-            control={
-              <Switch
-                checked={Boolean(saveMode)}
-                onChange={(e) => setSaveMode?.(e.target.checked)}
-                size="small"
-              />
-            }
-            label={
-              <Stack spacing={0} sx={{ lineHeight: 1 }}>
-                <Typography variant="caption" sx={{ opacity: 0.85, fontWeight: 700 }}>
-                  저장모드
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                  클립/저장 버튼 표시
-                </Typography>
-              </Stack>
-            }
-          />
-
-          {/* 동화 버튼 */}
-          <Tooltip title="이 장의 이야기(동화)" arrow>
+          {/* 메모 버튼 */}
+          <Tooltip title="내 메모" arrow>
             <span>
               <IconButton
                 size="small"
-                onClick={onOpenStory}
+                onClick={() => onOpenMemo?.(chapNum)}
                 sx={actionBtnSx}
-                aria-label="이 장의 이야기 열기"
+                aria-label="내 메모 열기"
               >
-                <AutoStoriesRoundedIcon fontSize="small" />
+                <NoteAltOutlinedIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
 
-          {/* 북마크 버튼: saveMode OFF여도 노출(발견성↑), 대신 안내 */}
+          {/* 북마크 버튼 */}
           <Tooltip title={bookmarkTitle} arrow>
             <span>
               <IconButton
                 size="small"
-                onClick={() => {
-                  if (!saveMode) {
-                    // saveMode가 꺼져있으면 토글을 켜는 편이 UX가 좋음
-                    setSaveMode?.(true);
-                    return;
-                  }
-                  toggleBookmark?.();
-                }}
+                onClick={() => toggleBookmark?.()}
                 disabled={!canSave || bookmarkLoading}
                 sx={actionBtnSx}
                 aria-label="장 저장 토글"

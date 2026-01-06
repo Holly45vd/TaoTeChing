@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ensureAnonymousAuth, subscribeAuth } from "./firebase/auth";
 
 import ReadPage from "./pages/ReadPage";
-import WritePage from "./pages/WritePage";
 import HanjaMapBuilder from "./pages/HanjaMapBuilder";
-import AdminChapterBatchUpdatePage from "./pages/AdminChapterBatchUpdatePage"; // ✅ 추가
+import AdminChapterBatchUpdatePage from "./pages/AdminChapterBatchUpdatePage";
 import Header from "./components/layout/Header";
 
 export default function App() {
-  // read | write | hanja | adminBatch
+  // read | hanja | adminBatch   (✅ write 제거)
   const [mode, setMode] = useState("read");
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -37,17 +36,11 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // ✅ 게스트/미인증이 write/adminBatch 들어가면 read로 되돌림
+  // ✅ write 모드 진입 자체를 막는 가드(혹시 남아있는 setMode("write") 대비)
   useEffect(() => {
     if (!authReady) return;
-
-    const guardModes = new Set(["write", "adminBatch"]);
-    if (!guardModes.has(mode)) return;
-
-    if (!isAuthed || isAnon) {
-      setMode("read");
-    }
-  }, [authReady, mode, isAuthed, isAnon]);
+    if (mode === "write") setMode("read");
+  }, [authReady, mode]);
 
   // ✅ (선택) 화이트리스트가 필요하면 여기서 걸어라
   const isAdmin = useMemo(() => {
@@ -59,15 +52,17 @@ export default function App() {
     // return allowedEmails.has(String(user?.email || "").toLowerCase());
 
     return true;
-  }, [isEmailUser]);
+  }, [isEmailUser, user?.email]);
 
-  // ✅ adminBatch 모드인데 admin 아니면 read로
+  // ✅ 게스트/미인증이 adminBatch 들어가면 read로 되돌림
   useEffect(() => {
     if (!authReady) return;
     if (mode !== "adminBatch") return;
 
-    if (!isAdmin) setMode("read");
-  }, [authReady, mode, isAdmin]);
+    if (!isAuthed || isAnon || !isAdmin) {
+      setMode("read");
+    }
+  }, [authReady, mode, isAuthed, isAnon, isAdmin]);
 
   if (!authReady) {
     return (
@@ -79,11 +74,10 @@ export default function App() {
 
   return (
     <div className="container">
-      <Header mode={mode} setMode={setMode} user={user} />
+      <Header mode={mode} setMode={setMode} user={user} isAdmin={isAdmin} />
 
       <main className="card">
         {mode === "read" && <ReadPage uid={user?.uid} />}
-        {mode === "write" && <WritePage uid={user?.uid} user={user} />}
         {mode === "hanja" && <HanjaMapBuilder />}
         {mode === "adminBatch" && isAdmin && <AdminChapterBatchUpdatePage />}
       </main>

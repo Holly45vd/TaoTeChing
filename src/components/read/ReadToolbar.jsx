@@ -39,27 +39,7 @@ export default function ReadToolbar({
             ☰ 메뉴
           </button>
 
-          {showTabs && (
-            <>
-              <button
-                type="button"
-                className={`tabBtn ${viewMode === "range" ? "tabBtnActive" : ""}`}
-                onClick={() => onViewMode?.("range")}
-                aria-pressed={viewMode === "range"}
-              >
-                장 범위
-              </button>
-
-              <button
-                type="button"
-                className={`tabBtn ${viewMode === "tag" ? "tabBtnActive" : ""}`}
-                onClick={() => onViewMode?.("tag")}
-                aria-pressed={viewMode === "tag"}
-              >
-                태그
-              </button>
-            </>
-          )}
+        
         </div>
 
         {/* Right: Search */}
